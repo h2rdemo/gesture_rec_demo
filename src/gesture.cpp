@@ -6,6 +6,7 @@
 #include <visualization_msgs/MarkerArray.h> 
 #include <Eigen/Dense>
 #include <limits>
+#include <math.h>
 visualization_msgs::MarkerArray clusters;
 
 void clusterCallback(const visualization_msgs::MarkerArray& msg){
@@ -24,21 +25,27 @@ int main(int argc, char **argv){
     ros::Rate r(30); //vis
 
     //set up conversion from tf to optical
-    tf::TransformBroadcaster br;
+    tf::TransformBroadcaster br; //switch to static_transform_publisher
     tf::Transform transform;
+    tf::Quaternion q;
+    q.setRPY(M_PI*0.0, M_PI*1.5, M_PI*0.5); //rotate openni skeleton to depth frame
     transform.setOrigin(tf::Vector3(0,0,0));
-    transform.setRotation(tf::Quaternion(tf::Vector3(1.0,1.0,1.0), 180.0));
+    transform.setRotation(q);
 
     //define variables
     Eigen::Vector3d x0;
     Eigen::Vector3d x1;
     Eigen::Vector3d x2;
+    Eigen::Vector3d x3;
+    Eigen::Vector3d x4;
     tf::StampedTransform to_left_elbow;
     tf::StampedTransform to_right_elbow;
     tf::StampedTransform to_right_hand;
     tf::StampedTransform to_left_hand;
     float dist;
+    float cluster_dist;
     float min_dist;
+    //float angle;
 
     //visualize best item
     visualization_msgs::Marker best_points;
@@ -56,23 +63,35 @@ int main(int argc, char **argv){
         br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "camera_depth_optical_frame", "openni_depth_frame"));
         try{
             //get all the transforms from the perspective point to the arms
-            tfl.lookupTransform("/left_elbow_1","/camera_depth_optical_frame", ros::Time(0), to_left_elbow);
-            tfl.lookupTransform("/right_elbow_1","/camera_depth_optical_frame", ros::Time(0), to_right_elbow);
-            tfl.lookupTransform("/left_hand_1","/camera_depth_optical_frame", ros::Time(0), to_left_hand);
-            tfl.lookupTransform("/right_hand_1","/camera_depth_optical_frame", ros::Time(0), to_right_hand);
+            tfl.lookupTransform("/camera_depth_optical_frame","/left_elbow_1", ros::Time(0), to_left_elbow);
+            tfl.lookupTransform("/camera_depth_optical_frame","/right_elbow_1", ros::Time(0), to_right_elbow);
+            tfl.lookupTransform("/camera_depth_optical_frame","/left_hand_1", ros::Time(0), to_left_hand);
+            tfl.lookupTransform("/camera_depth_optical_frame","/right_hand_1", ros::Time(0), to_right_hand);
             best_points.header.stamp = ros::Time::now();
             //find the closest cluster for the right arm
             x1 = Eigen::Vector3d(to_right_elbow.getOrigin().x(), to_right_elbow.getOrigin().y(),to_right_elbow.getOrigin().z());
             x2 = Eigen::Vector3d(to_right_hand.getOrigin().x(), to_right_hand.getOrigin().y(),to_right_hand.getOrigin().z());
+            x3 = Eigen::Vector3d(to_left_elbow.getOrigin().x(), to_left_elbow.getOrigin().y(),to_left_elbow.getOrigin().z());
+            x4 = Eigen::Vector3d(to_left_hand.getOrigin().x(), to_left_hand.getOrigin().y(),to_left_hand.getOrigin().z());
             min_dist = std::numeric_limits<float>::infinity();
+            //currently just right arm
             for(int i = 0; i<clusters.markers.size(); i++){
+                cluster_dist = std::numeric_limits<float>::infinity();
                 for(int j=0; j<clusters.markers[i].points.size(); j++){
                     x0 = Eigen::Vector3d(clusters.markers[i].points[j].x,clusters.markers[i].points[j].y,clusters.markers[i].points[j].z);
-                    dist = ((x2 - x1).cross(x1 - x0)).norm()/(x2-x1).norm();
-                    if(dist < min_dist){
-                        min_dist = dist;
-                        best_points.points = clusters.markers[i].points;
+                    dist = ((x2 - x1).cross(x1 - x0)).norm()/(x2-x1).norm(); // distance perpendicular to line
+                    //angle = std::atan2(((x2-x1).cross(x0 - x1)).norm(),(x2 - x1)*(x0-x1)); // double check
+                    if(dist < cluster_dist){
+                        cluster_dist = dist;
                     }
+                    /*if(angle > 1.57){
+                       cluster_dist = std::numeric_limits<float>::infinity();
+                       break; 
+                    }*/
+                }
+                if(cluster_dist < min_dist){
+                    min_dist = cluster_dist;
+                    best_points.points = clusters.markers[i].points;
                 }
             }
             marker_pub.publish(best_points);
@@ -85,7 +104,7 @@ int main(int argc, char **argv){
             right_arm.header.stamp = ros::Time::now();
             right_arm.id = 1;
             right_arm.ns = "gesture_marker";
-            right_arm.color.r = 1.0;
+            right_arm.color.g = 1.0f;
             right_arm.color.a = 1.0;
             right_arm.scale.x = 0.1;
             geometry_msgs::Point p;
@@ -102,7 +121,7 @@ int main(int argc, char **argv){
             r.sleep();
             ros::spinOnce();          
         }catch(tf::TransformException ex){
-           ROS_ERROR("%s",ex.what()); 
+           ROS_ERROR("Failed to connect to openni transforms"); 
         }
     }
 }
