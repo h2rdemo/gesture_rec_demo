@@ -7,10 +7,16 @@
 #include <Eigen/Dense>
 #include <limits>
 #include <math.h>
+#include <geometry_msgs/PointStamped.h>
 visualization_msgs::MarkerArray clusters;
 
+//gets the cluster info
 void clusterCallback(const visualization_msgs::MarkerArray& msg){
     clusters = msg;
+}
+//calculates the angle (radians) between the two vectors (same origin)
+float angle_between(Eigen::Vector3d v1, Eigen::Vector3d v2){
+    return std::acos(v1.dot(v2)/(v1.norm() * v2.norm()));
 }
 
 int main(int argc, char **argv){
@@ -33,19 +39,30 @@ int main(int argc, char **argv){
     transform.setRotation(q);
 
     //define variables
-    Eigen::Vector3d x0;
-    Eigen::Vector3d x1;
-    Eigen::Vector3d x2;
-    Eigen::Vector3d x3;
-    Eigen::Vector3d x4;
+    Eigen::Vector3d cloud_point;
+    Eigen::Vector3d right_origin;
+    Eigen::Vector3d right_point;
+    Eigen::Vector3d left_origin;
+    Eigen::Vector3d left_point;
+    Eigen::Vector3d head_origin;
+    Eigen::Vector3d head_point;
+
+
+    //transform holders
     tf::StampedTransform to_left_elbow;
     tf::StampedTransform to_right_elbow;
     tf::StampedTransform to_right_hand;
     tf::StampedTransform to_left_hand;
+    tf::StampedTransform to_head;
+
+    //variables
     float dist;
     float cluster_dist;
     float min_dist;
-    //float angle;
+    float angle;
+    tf::Vector3 temp_vec;
+    tf::Transform temp_tf;
+    Eigen::Vector3d temp_helper;
 
     //visualize best item
     visualization_msgs::Marker best_points;
@@ -67,27 +84,44 @@ int main(int argc, char **argv){
             tfl.lookupTransform("/camera_depth_optical_frame","/right_elbow_1", ros::Time(0), to_right_elbow);
             tfl.lookupTransform("/camera_depth_optical_frame","/left_hand_1", ros::Time(0), to_left_hand);
             tfl.lookupTransform("/camera_depth_optical_frame","/right_hand_1", ros::Time(0), to_right_hand);
-            best_points.header.stamp = ros::Time::now();
-            //find the closest cluster for the right arm
-            x1 = Eigen::Vector3d(to_right_elbow.getOrigin().x(), to_right_elbow.getOrigin().y(),to_right_elbow.getOrigin().z());
-            x2 = Eigen::Vector3d(to_right_hand.getOrigin().x(), to_right_hand.getOrigin().y(),to_right_hand.getOrigin().z());
-            x3 = Eigen::Vector3d(to_left_elbow.getOrigin().x(), to_left_elbow.getOrigin().y(),to_left_elbow.getOrigin().z());
-            x4 = Eigen::Vector3d(to_left_hand.getOrigin().x(), to_left_hand.getOrigin().y(),to_left_hand.getOrigin().z());
+            tfl.lookupTransform("/camera_depth_optical_frame","/head_1", ros::Time(0), to_head);
+            
+            best_points.header.stamp = ros::Time::now(); //update the time stamp on the markers
+
+
+            //create all points for the vectors
+            right_origin = Eigen::Vector3d(to_right_elbow.getOrigin().x(), to_right_elbow.getOrigin().y(),to_right_elbow.getOrigin().z());
+            right_point = Eigen::Vector3d(to_right_hand.getOrigin().x(), to_right_hand.getOrigin().y(),to_right_hand.getOrigin().z());
+            temp_helper = right_point - right_origin;
+            right_origin = right_point;
+            right_point = right_point + temp_helper; //deal with vector out of hand not elbow
+            left_origin = Eigen::Vector3d(to_left_elbow.getOrigin().x(), to_left_elbow.getOrigin().y(),to_left_elbow.getOrigin().z());
+            left_point = Eigen::Vector3d(to_left_hand.getOrigin().x(), to_left_hand.getOrigin().y(),to_left_hand.getOrigin().z());
+            temp_helper = left_point - left_origin;
+            left_origin = left_point;
+            left_point = left_point + left_helper; //deal with vector out of hand not elbow
+            head_origin = Eigen::Vector3d(to_head.getOrigin().x(), to_head.getOrigin().y(),to_head.getOrigin().z());
+            temp_tf = to_head.inverse();
+            temp_vec = temp_tf(tf::Vector3(0.1,0.1,0));
+            head_point = Eigen::Vector3d(temp_vec.x(), temp_vec.y(), temp_vec.z());
+            /*HIGHLIGHT RGHT ARM POINT
+            //initilize minimum distance
             min_dist = std::numeric_limits<float>::infinity();
+            //find the closest cluster for the right arm
             //currently just right arm
             for(int i = 0; i<clusters.markers.size(); i++){
                 cluster_dist = std::numeric_limits<float>::infinity();
                 for(int j=0; j<clusters.markers[i].points.size(); j++){
-                    x0 = Eigen::Vector3d(clusters.markers[i].points[j].x,clusters.markers[i].points[j].y,clusters.markers[i].points[j].z);
-                    dist = ((x2 - x1).cross(x1 - x0)).norm()/(x2-x1).norm(); // distance perpendicular to line
-                    //angle = std::atan2(((x2-x1).cross(x0 - x1)).norm(),(x2 - x1)*(x0-x1)); // double check
+                    cloud_point = Eigen::Vector3d(clusters.markers[i].points[j].x,clusters.markers[i].points[j].y,clusters.markers[i].points[j].z);
+                    dist = ((right_point - right_origin).cross(right_origin - cloud_point)).norm()/(right_point-right_origin).norm(); // distance perpendicular to line
                     if(dist < cluster_dist){
                         cluster_dist = dist;
                     }
-                    /*if(angle > 1.57){
+                    angle = angle_between(right_point-right_origin,cloud_point-right_origin);
+                    if(angle > 1.57 || angle < -1.57){
                        cluster_dist = std::numeric_limits<float>::infinity();
                        break; 
-                    }*/
+                    }
                 }
                 if(cluster_dist < min_dist){
                     min_dist = cluster_dist;
@@ -95,29 +129,45 @@ int main(int argc, char **argv){
                 }
             }
             marker_pub.publish(best_points);
-            //test code
-            /*
-            visualization_msgs::Marker right_arm;
-            right_arm.header.frame_id = "/camera_depth_optical_frame";
-            right_arm.type = visualization_msgs::Marker::LINE_LIST;
-            right_arm.action = visualization_msgs::Marker::ADD;
-            right_arm.header.stamp = ros::Time::now();
-            right_arm.id = 1;
-            right_arm.ns = "gesture_marker";
-            right_arm.color.g = 1.0f;
-            right_arm.color.a = 1.0;
-            right_arm.scale.x = 0.1;
-            geometry_msgs::Point p;
-            p.x = x1.x();
-            p.y = x1.y();
-            p.z = x1.z();
-            right_arm.points.push_back(p);
-            p.x = x2.x();
-            p.y = x2.y();
-            p.z = x2.z();
-            right_arm.points.push_back(p);
-            marker_pub.publish(right_arm);
             */
+            //test code
+            
+            visualization_msgs::Marker lines;
+            lines.header.frame_id = "/camera_depth_optical_frame";
+            lines.type = visualization_msgs::Marker::LINE_LIST;
+            lines.action = visualization_msgs::Marker::ADD;
+            lines.header.stamp = ros::Time::now();
+            lines.id = 1;
+            lines.ns = "gesture_marker";
+            lines.color.g = 1.0f;
+            lines.color.a = 1.0;
+            lines.scale.x = 0.1;
+            geometry_msgs::Point p;
+            p.x = right_origin.x();
+            p.y = right_origin.y();
+            p.z = right_origin.z();
+            lines.points.push_back(p);
+            p.x = right_point.x();
+            p.y = right_point.y();
+            p.z = right_point.z();
+            lines.points.push_back(p);
+            p.x = left_origin.x();
+            p.y = left_origin.y();
+            p.z = left_origin.z();
+            lines.points.push_back(p);
+            p.x = left_point.x();
+            p.y = left_point.y();
+            p.z = left_point.z();
+            lines.points.push_back(p);
+            p.x = head_origin.x();
+            p.y = head_origin.y();
+            p.z = head_origin.z();
+            lines.points.push_back(p);
+            p.x = head_point.x();
+            p.y = head_point.y();
+            p.z = head_point.z();
+            lines.points.push_back(p);
+            marker_pub.publish(lines);
             r.sleep();
             ros::spinOnce();          
         }catch(tf::TransformException ex){

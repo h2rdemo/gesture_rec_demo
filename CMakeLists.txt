@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(baxter_gesture)
+project(gesture_rec)
 
 find_package(catkin
   REQUIRED COMPONENTS
@@ -9,6 +9,7 @@ find_package(catkin
   openni_tracker
   tf
   visualization_msgs
+  geometry_msgs
 )
 include_directories(${Eigen_INCLUDE_DIRS})
 
