@@ -13,6 +13,7 @@
 ros::Subscriber sub; //subscriber for clusters
 ros::Publisher marker_pub; //publisher for visualization
 visualization_msgs::MarkerArray clusters; //clusters from tabletop
+std::string camera_namespace = "camera"; //namespace for camera topic
 
 
 visualization_msgs::Marker left_points, right_points, head_points, lines; //markers for visualization
@@ -55,11 +56,12 @@ bool fill_points(tf::TransformListener& tfl){
         Eigen::Vector3d temp_helper;
         tf::Vector3 temp_vec;
         tf::Transform temp_tf;
-        tfl.lookupTransform("/camera_depth_optical_frame","/left_elbow_1", ros::Time(0), to_left_elbow);
-        tfl.lookupTransform("/camera_depth_optical_frame","/right_elbow_1", ros::Time(0), to_right_elbow);
-        tfl.lookupTransform("/camera_depth_optical_frame","/left_hand_1", ros::Time(0), to_left_hand);
-        tfl.lookupTransform("/camera_depth_optical_frame","/right_hand_1", ros::Time(0), to_right_hand);
-        tfl.lookupTransform("/camera_depth_optical_frame","/head_1", ros::Time(0), to_head);
+        std::string frame = std::string("/") + camera_namespace + std::string("_depth_optical_frame");
+        tfl.lookupTransform(frame,"/left_elbow_1", ros::Time(0), to_left_elbow);
+        tfl.lookupTransform(frame,"/right_elbow_1", ros::Time(0), to_right_elbow);
+        tfl.lookupTransform(frame,"/left_hand_1", ros::Time(0), to_left_hand);
+        tfl.lookupTransform(frame,"/right_hand_1", ros::Time(0), to_right_hand);
+        tfl.lookupTransform(frame,"/head_1", ros::Time(0), to_head);
         right_origin = Eigen::Vector3d(to_right_elbow.getOrigin().x(), to_right_elbow.getOrigin().y(),to_right_elbow.getOrigin().z());
         right_point = Eigen::Vector3d(to_right_hand.getOrigin().x(), to_right_hand.getOrigin().y(),to_right_hand.getOrigin().z());
         temp_helper = right_point - right_origin;
@@ -85,8 +87,9 @@ bool fill_points(tf::TransformListener& tfl){
  * setup_viz : sets up the colors and whatnot for visualization
  */
 void setup_viz(){
+    std::string frame = std::string("/") + camera_namespace + std::string("_depth_optical_frame");
     //left arm (red)
-    left_points.header.frame_id = "/camera_depth_optical_frame";
+    left_points.header.frame_id = frame;
     left_points.type = visualization_msgs::Marker::POINTS;
     left_points.action = visualization_msgs::Marker::ADD;
     left_points.id = 1;
@@ -96,7 +99,7 @@ void setup_viz(){
     left_points.scale.x = 0.1;
     left_points.scale.y = 0.1;
     //right arm (green)
-    right_points.header.frame_id = "/camera_depth_optical_frame";
+    right_points.header.frame_id = frame;
     right_points.type = visualization_msgs::Marker::POINTS;
     right_points.action = visualization_msgs::Marker::ADD;
     right_points.id = 2;
@@ -106,7 +109,7 @@ void setup_viz(){
     right_points.scale.x = 0.1;
     right_points.scale.y = 0.1;
     //head (blue)
-    head_points.header.frame_id = "/camera_depth_optical_frame";
+    head_points.header.frame_id = frame;
     head_points.type = visualization_msgs::Marker::POINTS;
     head_points.action = visualization_msgs::Marker::ADD;
     head_points.id = 3;
@@ -116,7 +119,7 @@ void setup_viz(){
     head_points.scale.x = 0.1;
     head_points.scale.y = 0.1;
     //vector vis
-    lines.header.frame_id = "/camera_depth_optical_frame";
+    lines.header.frame_id = frame;
     lines.type = visualization_msgs::Marker::LINE_LIST;
     lines.action = visualization_msgs::Marker::ADD;
     lines.id = 4;
@@ -214,7 +217,7 @@ int main(int argc, char **argv){
     setup_viz();
     while(node.ok()){
         //broadcast transform
-        br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "camera_depth_optical_frame", "openni_depth_frame"));
+        //br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), std::string("/") + camera_namespace + std::string("_depth_optical_frame"), "openni_depth_frame"));
         fill_points(tfl);
         update_viz();
         r.sleep();

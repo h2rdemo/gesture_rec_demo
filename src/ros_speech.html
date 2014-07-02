@@ -1,0 +1,55 @@
+<html>
+<body>
+<h1>ROS Speech Listener</h1>
+<textarea id="speech_out" readonly rows="20" cols="100" wrap="soft">
+</textarea>
+</body>
+<script type="text/javascript" src="http://cdn.robotwebtools.org/EventEmitter2/current/eventemitter2.min.js"></script>
+<script type="text/javascript" src="http://cdn.robotwebtools.org/roslibjs/current/roslib.min.js"></script>
+<script type="text/javascript">
+	console.log("Beginning speech recognition");
+		var ros = new ROSLIB.Ros({
+		url : 'ws://localhost:9090'
+	});
+	ros.on('connection', function() {
+		console.log('Connected to websocket server.');
+	});
+
+	ros.on('error', function(error) {
+		console.log('Error connecting to websocket server: ', error);
+	});
+
+	ros.on('close', function() {
+		console.log('Connection to websocket server closed.');
+	});
+	var speech_topic = new ROSLIB.Topic({
+		ros : ros,
+		name : 'speech_recognition',
+		messageType : 'std_msgs/String'
+	});
+	var speech_msg;
+	var rec = new webkitSpeechRecognition();
+	rec.interimResults = true;
+	rec.continuous = true;
+	rec.onresult = function(event){
+		var text = "";
+		for(var i = 0; i < event.results.length; i++){
+			text += event.results[i][0].transcript + "\n";
+			if(event.results[i].isFinal && i == event.results.length - 1){
+				speech_msg = new ROSLIB.Message({
+					data : event.results[i][0].transcript
+				});
+				speech_topic.publish(speech_msg);
+			}
+		}
+		document.getElementById('speech_out').value = text;
+	}
+	rec.onspeechstart = function(event){
+		console.log("Speech started");
+	}
+	rec.onspeechend = function(event){
+		console.log("Speech stopped");
+	}
+	rec.start();
+</script>
+</html>
