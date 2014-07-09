@@ -9,5 +9,7 @@
    <arg name="device_id" value="#1"/>
    <arg name="camera" value="ork_camera"/>
  </include>
+ <node pkg="tf" type="static_transform_publisher" name="ork_tf" args="1.074 -0.548 0.394 -0.267 0.246 0.708 0.605 world ork_camera_link 100"/>
+ <node pkg="tf" type="static_transform_publisher" name="tracker_tf" args="0.115 0.070 0.955 0.032 0.162 0.039 0.986 world tracker_camera_link 100"/>
 
 </launch>
