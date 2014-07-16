@@ -35,7 +35,7 @@
 		var text = "";
 		for(var i = 0; i < event.results.length; i++){
 			text += event.results[i][0].transcript + "\n";
-			if(event.results[i].isFinal && i == event.results.length - 1){
+			if(/*event.results[i].isFinal &&*/ i == event.results.length - 1){
 				speech_msg = new ROSLIB.Message({
 					data : event.results[i][0].transcript
 				});
