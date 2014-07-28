@@ -16,8 +16,9 @@ ros::Publisher pub;
 void clusterCallback(const visualization_msgs::MarkerArray& clusters){
     object_recognition_msgs::RecognizedObjectArray msg;
     msg.header.stamp = ros::Time::now();
+    msg.header.frame_id = "camera_depth_optical_frame";
+    msg.header.seq = 0;
     PointCloud::Ptr pc (new PointCloud);
-
 
     for(int i= 0; i < clusters.markers.size(); i++){
         for(int j = 0; j<clusters.markers[i].points.size(); j++){
@@ -35,6 +36,10 @@ void clusterCallback(const visualization_msgs::MarkerArray& clusters){
         obj.point_clouds.push_back(cloud);
         //add timestamp
         obj.header.stamp = msg.header.stamp;
+        obj.header.frame_id = "camera_depth_optical_frame";
+        //misc fields
+        obj.header.seq = i + 1;
+        obj.type.db = "none";
         msg.objects.push_back(obj);
     }
     pub.publish(msg);
@@ -44,7 +49,7 @@ int main(int argc, char **argv){
     //ros setup
     ros::init(argc, argv, "h2r_relay");
     ros::NodeHandle node;
-    ros::Subscriber sub = node.subscribe("/tabletop/clusters", 1, &clusterCallback);
     pub = node.advertise<object_recognition_msgs::RecognizedObjectArray>("recognized_objects_array", 100);
+    ros::Subscriber sub = node.subscribe("/tabletop/clusters", 1, &clusterCallback);
     ros::spin();
 }

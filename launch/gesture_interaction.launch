@@ -1,7 +1,10 @@
 <launch>
+	<include file="$(find openni_launch)/launch/openni.launch">
+		<arg name="depth_registration" value="True"/>
+	</include>
 	<include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch"/>
 	<node name="speech_launcher" pkg="gesture_rec" type="speech_launch.sh"/>
-	<node name="object_recognition" pkg="object_recognition_core" type="detection" args="-c $(find object_recognition_tabletop)/conf/detection.object.ros.ork"/>
+	<node name="object_recognition" pkg="object_recognition_core" type="detection" args="-c $(find tabletop)/conf/detection.object.ros.ork"/>
 	<!--<node name="tracker" pkg="openni_tracker" type="openni_tracker">
 		<arg name="camera" value="tracker_camera"/>
 	</node>-->

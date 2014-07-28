@@ -50,6 +50,9 @@
 	rec.onspeechend = function(event){
 		console.log("Speech stopped");
 	}
+	rec.onend = function(){
+		rec.start();	
+	}
 	rec.start();
 </script>
 </html>
