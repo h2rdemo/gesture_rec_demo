@@ -1,7 +1,7 @@
 <launch>
-	<include file="$(find openni_launch)/launch/openni.launch">
+	<!--<include file="$(find openni_launch)/launch/openni.launch">
 		<arg name="depth_registration" value="True"/>
-	</include>
+	</include>-->
 	<include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch"/>
 	<node name="speech_launcher" pkg="gesture_rec" type="speech_launch.sh"/>
 	<node name="object_pointer" pkg="gesture_rec" type="object_pointer.py" launch-prefix="xterm -e" args="$(find gesture_rec)/src/object_lists/list1.txt"/>
@@ -10,7 +10,7 @@
 		<remap from="camera" to="ork_camera"/>
 	</include>
 	<node name="to_wav" pkg="gesture_rec" type="record_speech.sh"/>
-	<node name="openni_tf_broadcaster" pkg="tf" type="static_transform_publisher" args="0 0 0 1.57079632679 4.71238898038 0 camera_depth_optical_frame openni_depth_frame 100"/>
+	<node name="openni_tf_broadcaster" pkg="tf" type="static_transform_publisher" args="0 0 0 1.57079632679 4.71238898038 0 tracker_camera_depth_optical_frame openni_depth_frame 100"/>
 	<node name="recorder" pkg="rosbag" type="record" launch-prefix="xterm -e"
 	args="-o $(find gesture_rec)/test_data/data
 	world
