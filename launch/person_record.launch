@@ -1,28 +1,21 @@
 <launch>
-	<!--<include file="$(find openni_launch)/launch/openni.launch">
-		<arg name="depth_registration" value="True"/>
-	</include>-->
 	<include file="$(find rosbridge_server)/launch/rosbridge_websocket.launch"/>
+
 	<node name="speech_launcher" pkg="gesture_rec" type="speech_launch.sh"/>
+
 	<node name="object_pointer" pkg="gesture_rec" type="object_pointer.py" launch-prefix="xterm -e" args="$(find gesture_rec)/src/object_lists/list1.txt"/>
-	<!--<node name="tracker" pkg="openni_tracker" type="openni_tracker" launch-prefix="xterm -e" args="camera:=tracker_camera"/>-->
+
 	<include file="$(find find_object_2d)/launch/find_object_3d.launch">
 		<remap from="camera" to="ork_camera"/>
 	</include>
+
 	<node name="to_wav" pkg="gesture_rec" type="record_speech.sh"/>
+
 	<node name="openni_tf_broadcaster" pkg="tf" type="static_transform_publisher" args="0 0 0 1.57079632679 4.71238898038 0 tracker_camera_depth_optical_frame openni_depth_frame 100"/>
+	
 	<node name="recorder" pkg="rosbag" type="record" launch-prefix="xterm -e"
 	args="-o $(find gesture_rec)/test_data/data
-	world
 	tf
-	openni_tf_broadcaster
-	ork_tf
-	tracker_tf
-	left_elbow_1
-	right_elbow_1
-	left_hand_1
-	right_hand_1
-	head_1
 	speech_recognition
 	current_object
 	objects

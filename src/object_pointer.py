@@ -19,16 +19,17 @@ if __name__ == "__main__":
 	rospy.init_node("object_pointer")
 	pub = rospy.Publisher("current_object", String, queue_size=1)
 	rate = rospy.Rate(30.0);
-	start = time.time()
-	obj = random.choice(objects)
-	rospy.loginfo("OBJECT SET TO " + obj)
+	#start = time.time()
+	obj = "NONE"
 	while not rospy.is_shutdown():
 		if sys.stdin.readline():
 			obj = random.choice(objects)
 			rospy.loginfo("OBJECT SET TO " + obj)
-			start = time.time()
+			#start = time.time()
+		"""
 		if(time.time() - start >= 15.0):
 			obj = random.choice(objects)
 			rospy.loginfo("OBJECT SET TO " + obj)
 			start = time.time()
+		"""
 		pub.publish(obj)
