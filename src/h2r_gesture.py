@@ -10,6 +10,9 @@ import tf
 import math
 import scipy.stats
 from numpy import dot
+import matplotlib
+import matplotlib.mlab as mlab
+import matplotlib.pyplot as plt
 from std_msgs.msg import Header, String, Float32MultiArray
 from tf.transformations import quaternion_inverse, quaternion_matrix
 
@@ -20,17 +23,20 @@ global left_arm_point
 global right_arm_point
 global head_point
 global speech
+global left_foot
+global right_foot
 speech = []
 global state_dist
 state_dist = dict()
 global objects
 objects = []
 #TEMP HACK
-objects = [("wood_spoon", (1.55, -0.5, -0.5)),("plastic_spoon", (1.55,-0.2,-0.5)), ("metal_bowl",(1.2, -0.2, -0.6)), ("gyro_bowl",(1.2, -0.5, -0.6))]
+#objects = [("pink_box", (1.4,-0.2,-0.5)), ("purple_cylinder", (1.4, 0.05, -0.5))]
+objects = [("silver_spoon", (1.97, 0.17, -0.65)),("plastic_spoon", (1.95, -0.34, -0.65)), ("metal_bowl",(1.65, -0.37, -0.6)), ("color_bowl",(1.65, 0.22,-0.6))]
 global t
-t = 0.001
+t = 0.005
 global variance
-variance = 0.5
+variance = 1.0
 global word_probabilities
 global vocabulary
 global eps
@@ -73,7 +79,14 @@ def object_callback(input):
 
 
 def is_arm_null_gesture(arm_origin, arm_point):
-    return (arm_origin == None or arm_point == None)
+    if (arm_origin == None or arm_point == None):
+        return True
+    else:
+        min_angle = 10.0 #greater than 3.14, so should always be greatest angle
+        for obj in objects:
+            if angle_between(arm_origin, arm_point, obj[1]) < min_angle:
+                min_angle = angle_between(arm_origin, arm_point, obj[1])
+        return min_angle > angle_between(arm_origin, arm_point, right_foot) or min_angle > angle_between(arm_origin, arm_point, left_foot)
 def is_head_null_gesture(origin, point):
     return (origin == None or point == None)
 
@@ -90,11 +103,16 @@ def fill_points(tfl):
         global head_point
         global left_arm_point
         global right_arm_point
+        global left_foot
+        global right_foot
         frame = "/camera_link"
         (to_left_elbow,_) = tfl.lookupTransform(frame,"/left_elbow_1", rospy.Time(0))
         (to_right_elbow,_) = tfl.lookupTransform(frame,"/right_elbow_1", rospy.Time(0))
         (to_left_hand,_) = tfl.lookupTransform(frame,"/left_hand_1", rospy.Time(0))
         (to_right_hand,_) = tfl.lookupTransform(frame,"/right_hand_1", rospy.Time(0))
+        (right_foot,_) = tfl.lookupTransform(frame, "/right_foot_1", rospy.Time(0))
+        (left_foot,_) = tfl.lookupTransform(frame, "/left_foot_1", rospy.Time(0))
+        print to_left_hand
         #print to_right_hand
         (to_head,head_rot) = tfl.lookupTransform(frame,"/head_1", rospy.Time(0))
         left_arm_origin = to_left_hand
@@ -105,11 +123,11 @@ def fill_points(tfl):
         head_temp = dot((0.0,0.0,-1.0,1.0), quaternion_matrix(quaternion_inverse(head_rot)))
         head_point = (head_temp[0] + to_head[0], head_temp[1] + to_head[1], head_temp[2] + to_head[2])
         
-        # visualization for testing (verify head vector)
+        #visualization for testing (verify head vector)
         # marker = Marker()
         # marker.header.frame_id = "camera_link"
         # marker.header.stamp = rospy.Time(0)
-        # marker.type = marker.LINE_LIST
+        # marker.type = marker.POINTS
         # marker.action = marker.ADD
         # marker.scale.x = 0.2
         # marker.scale.y = 0.2
@@ -134,12 +152,25 @@ def fill_points(tfl):
         head_origin = None
         return False
 
-
+def baxter_init_response():
+    plt.ion()
+    plt.show()
 def baxter_respond():
+    plt.clf()
+    x = []
+    for word in state_dist.keys():
+        x.append(word.replace('_', ' '))
+    plt.bar(range(len(state_dist.keys())), state_dist.values(), align='center')
+    plt.xticks(range(len(state_dist.keys())), x, size='small')
+    font = {'family' : 'normal','weight' : 'bold','size'   : 25}
+    matplotlib.rc('font', **font)
+    plt.ylim([0,1.0])
+    plt.draw()
     print state_dist
 
 def update_model():
     global state_dist
+    global speech
     prev_dist = state_dist
     state_dist = dict()
     #if we have no previous model, set to uniform
@@ -157,7 +188,7 @@ def update_model():
             else:
                 state_dist[obj_id] += t*prev_dist[prev_id]
         # left arm
-        if False and not is_arm_null_gesture(left_arm_origin, left_arm_point):
+        if not is_arm_null_gesture(left_arm_origin, left_arm_point):
             state_dist[obj_id] *= prob_of_sample(angle_between(left_arm_origin, left_arm_point, obj[1]))
         #right arm
         if not is_arm_null_gesture(right_arm_origin, right_arm_point):
@@ -173,9 +204,6 @@ def update_model():
     total = sum(state_dist.values())
     for obj in state_dist.keys():
         state_dist[obj] = state_dist[obj] / total
-    if not len(state_dist.keys()) == 0:
-        baxter_respond()
-    global speech
     speech = []
 
 def load_dict(filename):
@@ -217,15 +245,19 @@ def main():
     marker.scale.y = 0.2
     marker.scale.z = 0.2
     marker.color.a = 1.0
-    p1 = Point(1.55,-0.2,-0.5) # plastic spoon
-    p2 = Point(1.55, -0.5, -0.5) #wooden spoon
-    p3 = Point(1.2, -0.2, -0.6) #metal bowl
-    p4 = Point(1.2, -0.5, -0.6) #gyro bowl
-    marker.points += [p1, p2, p3, p4]
+    # depth, right left, up down
+    p1 = Point(1.65, 0.22,-0.6) # color bowl
+    p2 = Point(1.65, -0.37, -0.60) #metal bowl
+    p3 = Point(1.95, -0.34, -0.65) #plastic spoon
+    p4 = Point(1.97, 0.17, -0.65) #silver spoon
+    marker.points += [p1,p2,p3,p4]
+    baxter_init_response()
     while not rospy.is_shutdown():
         pub.publish(marker)
         fill_points(tfl)
         update_model()
+        if not len(state_dist.keys()) == 0:
+            baxter_respond()
         rate.sleep()
 
 
