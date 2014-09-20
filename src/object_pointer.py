@@ -20,7 +20,7 @@ if __name__ == "__main__":
 	pub = rospy.Publisher("current_object", String, queue_size=1)
 	rate = rospy.Rate(30.0);
 	#start = time.time()
-	obj = "NONE"
+	obj = "None"
 	while not rospy.is_shutdown():
 		if sys.stdin.readline():
 			obj = random.choice(objects)

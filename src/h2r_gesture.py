@@ -3,7 +3,7 @@
 
 import sys
 import roslib
-roslib.load_manifest("pose_feature_vector")
+roslib.load_manifest("gesture_rec")
 import rospy
 
 import tf
@@ -25,6 +25,10 @@ global head_point
 global speech
 global left_foot
 global right_foot
+global ground_truth
+global storage
+storage = None
+ground_truth = "None"
 speech = []
 global state_dist
 state_dist = dict()
@@ -76,6 +80,10 @@ def object_callback(input):
     #process into
     # (object_id, (x,y,z))
     pass
+def truth_callback(input):
+    global ground_truth
+    ground_truth = input.data
+
 
 
 def is_arm_null_gesture(arm_origin, arm_point):
@@ -105,7 +113,7 @@ def fill_points(tfl):
         global right_arm_point
         global left_foot
         global right_foot
-        frame = "/camera_link"
+        frame = "/openni_link" #"camera_link"
         (to_left_elbow,_) = tfl.lookupTransform(frame,"/left_elbow_1", rospy.Time(0))
         (to_right_elbow,_) = tfl.lookupTransform(frame,"/right_elbow_1", rospy.Time(0))
         (to_left_hand,_) = tfl.lookupTransform(frame,"/left_hand_1", rospy.Time(0))
@@ -150,6 +158,8 @@ def fill_points(tfl):
         right_arm_point = None
         head_point = None
         head_origin = None
+        left_foot = None
+        right_foot = None
         return False
 
 def baxter_init_response():
@@ -226,18 +236,37 @@ def load_dict(filename):
 
 
 
+def write_output():
+    if storage:
+        output = [head_origin, head_point, left_arm_origin, left_arm_point, \
+                    right_arm_origin, right_arm_point, left_foot, right_foot,\
+                    ground_truth, speech, objects]
+        storage.write(str(output) + "\n")
+    pass
+    #objects
+    #arms
+    #head
+    #speech
+    #ground truth
+
+
 def main():
     rospy.init_node('h2r_gesture')
     load_dict(sys.argv[1])
     tfl = tf.TransformListener()
     rospy.Subscriber('speech_recognition', String, speech_callback, queue_size=1)
     rospy.Subscriber('objects', Float32MultiArray, object_callback, queue_size=1)
+    rospy.Subscriber('current_object', String, truth_callback, queue_size=1)
     rate = rospy.Rate(30.0)
+    global storage
+    if len(sys.argv) > 2:
+        storage = storage = open(sys.argv[2], 'w')
+
 
     global pub
     pub = rospy.Publisher("test_marker", Marker)
     marker = Marker()
-    marker.header.frame_id = "camera_link"
+    marker.header.frame_id = "openni_link" #"camera_link"
     marker.header.stamp = rospy.Time(0)
     marker.type = marker.POINTS
     marker.action = marker.ADD
@@ -258,11 +287,12 @@ def main():
         update_model()
         if not len(state_dist.keys()) == 0:
             baxter_respond()
+            write_output()
         rate.sleep()
 
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print "Usage: rosrun gesture_rec h2r_gesture.py <language model file>"
+        print "Usage: rosrun gesture_rec h2r_gesture.py <language model file> <storage file (optional)>"
         sys.exit()
     main()
