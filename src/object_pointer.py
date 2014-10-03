@@ -9,21 +9,25 @@ import time
 import random
 
 if __name__ == "__main__":
-	if len(sys.argv) != 2:
-		print sys.argv
-		print "Usage:\n\trosrun gesture_rec object_point.py <file name>\n\tWhere <file name> contains the objects, one per line."
-		exit(0)
-	with open(sys.argv[1]) as f:
-		objects = f.read().split('\n')
-	print objects
+	#if len(sys.argv) != 2:
+	#	print sys.argv
+	#	print "Usage:\n\trosrun gesture_rec object_point.py <file name>\n\tWhere <file name> contains the objects, one per line."
+	#	exit(0)
+	#with open(sys.argv[1]) as f:
+	#	objects = f.read().split('\n')
+	#print objects
 	rospy.init_node("object_pointer")
 	pub = rospy.Publisher("current_object", String, queue_size=1)
 	rate = rospy.Rate(30.0);
 	#start = time.time()
 	obj = "None"
+	objects = ["silver_spoon", "color_bowl", "plastic_spoon", "metal_bowl", "color_bowl", "None"]
+	print objects
+	index = 0
 	while not rospy.is_shutdown():
 		if sys.stdin.readline():
-			obj = random.choice(objects)
+			obj = objects[index]
+			index += 1
 			rospy.loginfo("OBJECT SET TO " + obj)
 			#start = time.time()
 		"""

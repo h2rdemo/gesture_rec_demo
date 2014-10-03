@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-
+import time
 import sys
 import roslib
 roslib.load_manifest("gesture_rec")
@@ -27,16 +27,18 @@ global left_foot
 global right_foot
 global ground_truth
 global storage
+global write_speech
 storage = None
 ground_truth = "None"
 speech = []
+write_speech = []
 global state_dist
 state_dist = dict()
 global objects
 objects = []
 #TEMP HACK
 #objects = [("pink_box", (1.4,-0.2,-0.5)), ("purple_cylinder", (1.4, 0.05, -0.5))]
-objects = [("silver_spoon", (1.97, 0.17, -0.65)),("plastic_spoon", (1.95, -0.34, -0.65)), ("metal_bowl",(1.65, -0.37, -0.6)), ("color_bowl",(1.65, 0.22,-0.6))]
+objects = [("silver_spoon", (1.7, 0.1, -0.5)),("plastic_spoon", (1.7, -0.4, -0.5)), ("metal_bowl",(1.4, -0.37, -0.47)), ("color_bowl",(1.4, 0.22,-0.47))]
 global t
 t = 0.005
 global variance
@@ -120,8 +122,6 @@ def fill_points(tfl):
         (to_right_hand,_) = tfl.lookupTransform(frame,"/right_hand_1", rospy.Time(0))
         (right_foot,_) = tfl.lookupTransform(frame, "/right_foot_1", rospy.Time(0))
         (left_foot,_) = tfl.lookupTransform(frame, "/left_foot_1", rospy.Time(0))
-        print to_left_hand
-        #print to_right_hand
         (to_head,head_rot) = tfl.lookupTransform(frame,"/head_1", rospy.Time(0))
         left_arm_origin = to_left_hand
         left_arm_point = add_vec(to_left_hand, sub_vec(to_left_hand, to_left_elbow))
@@ -176,7 +176,6 @@ def baxter_respond():
     matplotlib.rc('font', **font)
     plt.ylim([0,1.0])
     plt.draw()
-    print state_dist
 
 def update_model():
     global state_dist
@@ -214,6 +213,8 @@ def update_model():
     total = sum(state_dist.values())
     for obj in state_dist.keys():
         state_dist[obj] = state_dist[obj] / total
+    global write_speech
+    write_speech = speech
     speech = []
 
 def load_dict(filename):
@@ -237,12 +238,13 @@ def load_dict(filename):
 
 
 def write_output():
+    global write_speech
     if storage:
         output = [head_origin, head_point, left_arm_origin, left_arm_point, \
                     right_arm_origin, right_arm_point, left_foot, right_foot,\
-                    ground_truth, speech, objects]
+                    ground_truth, write_speech, objects, max(state_dist.keys(), key=lambda x: state_dist[x]), time.clock()]
         storage.write(str(output) + "\n")
-    pass
+    write_speech = []
     #objects
     #arms
     #head
@@ -251,6 +253,7 @@ def write_output():
 
 
 def main():
+    global speech
     rospy.init_node('h2r_gesture')
     load_dict(sys.argv[1])
     tfl = tf.TransformListener()
@@ -275,10 +278,10 @@ def main():
     marker.scale.z = 0.2
     marker.color.a = 1.0
     # depth, right left, up down
-    p1 = Point(1.65, 0.22,-0.6) # color bowl
-    p2 = Point(1.65, -0.37, -0.60) #metal bowl
-    p3 = Point(1.95, -0.34, -0.65) #plastic spoon
-    p4 = Point(1.97, 0.17, -0.65) #silver spoon
+    p1 = Point(1.4, 0.22,-0.47) # color bowl
+    p2 = Point(1.4, -0.37, -0.47) #metal bowl
+    p3 = Point(1.7, -0.4, -0.5) #plastic spoon
+    p4 = Point(1.7, 0.1, -0.5) #silver spoon
     marker.points += [p1,p2,p3,p4]
     baxter_init_response()
     while not rospy.is_shutdown():

@@ -1,27 +1,25 @@
-import argparse
 import random
 import math
 import numpy as np
+import sys
 import scipy.stats
-
-global t
-global num_objects
-global variance
-global num_tests
-global num_steps
-global world_x
-global world_y
-global world_z
-global time_per_object
-world_x = world_y = world_z = 10.0
-descriptors = ["red", "blue", "green", "orange", "purple", "black", "white", "square", "circle", "triangle", "bridge", "soft", "hard", "round", "shiny", "dull", "bright", "sharp", "large", "small", "long", "short"]
-
-# vector utilities
-def dot(v1, v2):
-    total = 0.0
-    for i in range(len(v1)):
-        total += v1[i] * v2[i]
-    return total
+from numpy import dot
+global word_probabilities
+global vocabulary
+t = 0.005
+variance = 1.0
+global head_belief
+global arm_belief
+global speech_belief
+global multimodal_belief
+global everything_belief
+head_belief = dict()
+speech_belief = dict()
+arm_belief = dict()
+multimodal_belief = dict()
+everything_belief = dict() # including head (i think this will be bad)
+eps = 0.0001
+#vector utilities
 def norm(vec):
     total = 0.0
     for i in range(len(vec)):
@@ -32,148 +30,251 @@ def sub_vec(v1,v2):
     for i in range(len(v1)):
         ret += [v1[i]-v2[i]]
     return tuple(ret)
-def angle_between(v1, v2):
+def add_vec(v1,v2):
+    ret = []
+    for i in range(len(v1)):
+        ret += [v1[i]+v2[i]]
+    return tuple(ret)
+def angle_between(origin, p1, p2):
+    v1 = sub_vec(p1, origin)
+    v2 = sub_vec(p2, origin)
     return math.acos(dot(v1, v2)/(norm(v1)* norm(v2)))
-
-
-def gen_vector(x,y,z):
-    origin = (random.uniform(0.0, world_x), random.uniform(0.0, world_y), random.uniform(0.0, world_z))
-    found = False
-    radians = abs(np.random.normal(scale=math.sqrt(variance))) #draws a sample from a gaussian
-    tries = 0
-    while not found:
-        tries += 1
-        point = (random.uniform(0.0, world_x), random.uniform(0.0, world_y), random.uniform(0.0, world_z))
-        sample_radians = abs(angle_between(sub_vec(point, origin), sub_vec((x,y,z), origin)))
-        if sample_radians >= radians - 0.05 and sample_radians <= radians + 0.05:
-            return (origin, point)
-        if tries > 100:
-            return gen_vector(x,y,z)
-    
-def gen_speech(word_dict):
-    return [np.random.choice(word_dict.keys(), p=word_dict.values())]
-
-def gen_object():
-    word_probabilities = dict()
-    for word in descriptors:
-        word_probabilities[word] = 0.0
-    for _ in range(5): # how many descriptors should each object have?
-        word_probabilities[random.choice(descriptors)] += 0.2
-    for word in descriptors:
-        if word_probabilities[word] == 0.0:
-            word_probabilities[word] = 0.1 #eps?
-    total = sum(word_probabilities.values())
-    for word in descriptors:
-        word_probabilities[word] = word_probabilities[word]/total
-    return (random.uniform(0.0, world_x), random.uniform(0.0, world_y), random.uniform(0.0, world_z), word_probabilities)
-
 def prob_of_sample(sample):
     return scipy.stats.norm(0.0, math.sqrt(variance)).pdf(sample)
-    #return 1 - (sample/3.14)
+def load_dict(filename):
+    global word_probabilities
+    global vocabulary
+    word_probabilities = dict()
+    vocabulary = set()
+    with open(filename) as f:
+        lines = f.read().split('\n')
+        for line in lines:
+            words = line.split()
+            word_probabilities[words[0]] = dict()
+            for i in range(1, len(words)):
+                word_probabilities[words[0]][words[i]] = word_probabilities[words[0]].get(words[i], 0.0) + 1.0
+                vocabulary.add(words[i])
+    for word in word_probabilities.keys():
+        total = sum(word_probabilities[word].values())
+        for x in word_probabilities[word]:
+            word_probabilities[word][x] = word_probabilities[word][x]/ total
+def is_arm_null_gesture(arm_origin, arm_point, left_foot, right_foot, objects):
+    if (arm_origin == None or arm_point == None):
+        return True
+    else:
+        min_angle = 10.0 #greater than 3.14, so should always be greatest angle
+        for obj in objects:
+            if angle_between(arm_origin, arm_point, obj[1]) < min_angle:
+                min_angle = angle_between(arm_origin, arm_point, obj[1])
+        return min_angle > angle_between(arm_origin, arm_point, right_foot) or min_angle > angle_between(arm_origin, arm_point, left_foot)
+def is_head_null_gesture(origin, point):
+    return (origin == None or point == None)
+def update_model(data):
+    global head_belief
+    global arm_belief
+    global speech_belief
+    global multimodal_belief
+    global everything_belief
+    head_origin = data[0]
+    head_point = data[1]
+    left_arm_origin = data[2]
+    left_arm_point = data[3]
+    right_arm_origin = data[4]
+    right_arm_point = data[5]
+    left_foot = data[6]
+    right_foot = data[7]
+    ground_truth = data[8]
+    speech = data[9]
+    objects = data[10]
+    new_head_belief = dict()
+    new_speech_belief = dict()
+    new_arm_belief = dict()
+    new_multimodal_belief = dict()
+    new_everything_belief = dict()
+    for i in range(len(objects)):
+        curr_object = objects[i]
+        object_name = curr_object[0]
+        object_point = curr_object[1]
+        #init new values
+        new_head_belief[object_name] = 0.0
+        new_arm_belief[object_name] = 0.0
+        new_multimodal_belief[object_name] = 0.0
+        new_speech_belief[object_name] = 0.0
+        new_everything_belief[object_name] = 0.0
+        #transition probabilities
+        for j in range(len(objects)): #assumes number of objects does not change
+            temp_object = objects[j]
+            temp_object_name = temp_object[0]
+            if i == j: trans_prob = 1 - t
+            else: trans_prob = t
+            new_head_belief[object_name] += trans_prob * head_belief[temp_object_name]
+            new_arm_belief[object_name] += trans_prob * arm_belief[temp_object_name]
+            new_multimodal_belief[object_name] += trans_prob * multimodal_belief[temp_object_name]
+            new_speech_belief[object_name] += trans_prob * speech_belief[temp_object_name]
+            new_everything_belief[object_name] += trans_prob * everything_belief[temp_object_name]
+        #check the head
+        if not is_head_null_gesture(head_origin, head_point):
+            head_prob = prob_of_sample(angle_between(head_origin, head_point, object_point))
+            new_head_belief[object_name] *= head_prob
+            new_everything_belief[object_name] *= head_prob
+        #check the arms
+        if not is_arm_null_gesture(left_arm_origin, left_arm_point, left_foot, right_foot, objects):
+            left_arm_prob = prob_of_sample(angle_between(left_arm_origin, left_arm_point, object_point))
+            new_arm_belief[object_name] *= left_arm_prob
+            new_everything_belief[object_name] *= left_arm_prob
+            new_multimodal_belief[object_name] *= left_arm_prob
+        if not is_arm_null_gesture(right_arm_origin, right_arm_point, left_foot, right_foot, objects):
+            right_arm_prob = prob_of_sample(angle_between(right_arm_origin, right_arm_point, object_point))
+            new_arm_belief[object_name] *= right_arm_prob
+            new_everything_belief[object_name] *= right_arm_prob
+            new_multimodal_belief[object_name] *= right_arm_prob
+        #check the speech
+        for word in speech:
+            if word in vocabulary:
+                new_everything_belief[object_name] *= word_probabilities[object_name].get(word, eps)
+                new_multimodal_belief[object_name] *= word_probabilities[object_name].get(word, eps)
+                new_speech_belief[object_name] *= word_probabilities[object_name].get(word, eps)
+    for d in [new_speech_belief, new_head_belief, new_multimodal_belief, new_arm_belief, new_everything_belief]:
+        total = sum(d.values())
+        for obj in d.keys():
+            d[obj] = d[obj] / total
+    head_belief = new_head_belief
+    speech_belief = new_speech_belief
+    arm_belief = new_arm_belief
+    multimodal_belief = new_multimodal_belief
+    everything_belief = new_everything_belief
+    return speech_belief, head_belief, arm_belief, multimodal_belief, everything_belief
 
-def run_tests():
-    correct_head = 0
-    correct_speech = 0
-    correct_arm = 0
-    correct_multimodal = 0
-    total = num_tests * num_steps * 1.0
-    for test in range(num_tests):
-        print "Test number", test
-        objects = []
-        head_belief = dict()
-        speech_belief = dict()
-        arm_belief = dict()
-        multimodal_belief = dict()
-        #generate the objects for this test
-        for i in range(num_objects):
-            objects+=[(gen_object())]
-            head_belief[i] = speech_belief[i] = arm_belief[i] = multimodal_belief[i] = 1.0/num_objects
-        for i in range(num_steps):
-            #switch objects at the set rate
-            if i % time_per_object == 0:
-                true_object_index = random.choice(range(num_objects))
-                true_object = objects[true_object_index]
-            #generate random observations
-            arm1_origin, arm1_point = gen_vector(true_object[0], true_object[1], true_object[2])
-            arm2_origin, arm2_point = gen_vector(true_object[0], true_object[1], true_object[2])
-            head_origin, head_point = gen_vector(true_object[0], true_object[1], true_object[2])
-            speech = gen_speech(true_object[3])
-            new_head_belief = dict()
-            new_speech_belief = dict()
-            new_arm_belief = dict()
-            new_multimodal_belief = dict()
-            for o1 in range(num_objects):
-                curr_object = objects[o1]
-                object_point = (curr_object[0],curr_object[1],curr_object[2])
-                #do the transition probabilities
-                new_head_belief[o1] = 0.0
-                new_arm_belief[o1] = 0.0
-                new_multimodal_belief[o1] = 1.0
-                new_speech_belief[o1] = 0.0
-                for o2 in range(num_objects):
-                    if o1 == o2: trans_prob = 1-t
-                    else: trans_prob = t
-                    new_head_belief[o1] += head_belief[o2] * trans_prob
-                    new_speech_belief[o1] += speech_belief[o2] * trans_prob
-                    new_arm_belief[o1] += arm_belief[o2] * trans_prob
-                    new_multimodal_belief[o1] += multimodal_belief[o2] * trans_prob
-                #check the head
-                head_prob = prob_of_sample(angle_between(sub_vec(head_point, head_origin), sub_vec(object_point, head_origin)))
-                new_head_belief[o1] *= head_prob
-                new_multimodal_belief[o1] *= head_prob
-                #check the arms
-                arm1_prob = prob_of_sample(angle_between(sub_vec(arm1_point, arm1_origin), sub_vec(object_point, arm1_origin)))
-                arm2_prob = prob_of_sample(angle_between(sub_vec(arm2_point, arm2_origin), sub_vec(object_point, arm2_origin)))
-                new_arm_belief[o1] *= arm1_prob * arm2_prob
-                new_multimodal_belief[o1] *= arm1_prob * arm2_prob
-                #check the speech
-                speech_prob = 1.0
-                for word in speech:
-                    speech_prob *= curr_object[3][word]
-                new_speech_belief[o1] *= speech_prob
-                new_multimodal_belief[o1] *= speech_prob
-            #normalize!
-            m_total = sum(new_multimodal_belief.values())
-            s_total = sum(new_speech_belief.values())
-            a_total = sum(new_arm_belief.values())
-            h_total = sum(new_head_belief.values())
-            for o in range(num_objects):
-                new_multimodal_belief[o] = new_multimodal_belief[o]/m_total
-                new_speech_belief[o] = new_speech_belief[o]/s_total
-                new_arm_belief[o] = new_arm_belief[o]/a_total
-                new_head_belief[o] = new_head_belief[o]/h_total
-            head_belief = new_head_belief
-            arm_belief = new_arm_belief
-            speech_belief = new_speech_belief
-            multimodal_belief = new_multimodal_belief
-            if max(head_belief.keys(), key=lambda x: head_belief[x]) == true_object_index: correct_head += 1
-            if max(arm_belief.keys(), key=lambda x: arm_belief[x]) == true_object_index: correct_arm += 1
-            if max(speech_belief.keys(), key=lambda x: speech_belief[x]) == true_object_index: correct_speech += 1
-            if max(multimodal_belief.keys(), key=lambda x: multimodal_belief[x]) == true_object_index: correct_multimodal += 1
-    print "Head only:",correct_head/total 
-    print "Arms only:", correct_arm/total
-    print "Speech only:", correct_speech/total
-    print "Multimodal:", correct_multimodal/total
+
+def main():
+    speech_total = 0
+    head_total = 0
+    arm_total = 0
+    multimodal_total = 0
+    everything_total = 0
+    total = 0
+    speech_list =[]
+    head_list = []
+    arm_list = []
+    multi_list = []
+    every_list = []
+    real_list = []
+    load_dict(sys.argv[1])
+    with open(sys.argv[2]) as f:
+        x = f.readline()
+        objects = eval(x)[10]
+        for obj in objects: #initialize object dist
+            head_belief[obj[0]] = 1.0/len(objects)
+            speech_belief[obj[0]] = 1.0/len(objects)
+            arm_belief[obj[0]] = 1.0/len(objects)
+            multimodal_belief[obj[0]] = 1.0/len(objects)
+            everything_belief[obj[0]] = 1.0/len(objects)
+        while(not (x == "" or x == "\n")):
+            data = eval(x)
+            ground_truth = data[8]
+            sb, hb, ab, mb, eb = update_model(data)
+            if not ground_truth == "None":
+                real_list.append(ground_truth)
+                head_list.append(max(hb.keys(), key=lambda x: hb[x]))
+                arm_list.append(max(ab.keys(), key=lambda x: ab[x]))
+                multi_list.append(max(mb.keys(), key=lambda x: mb[x]))
+                every_list.append(max(eb.keys(), key=lambda x: eb[x]))
+                total += 1
+                speech_list.append(max(sb.keys(), key=lambda x: sb[x]))
+                if max(sb.keys(), key=lambda x: sb[x]) == ground_truth:
+                    speech_total += 1
+                if max(hb.keys(), key=lambda x: hb[x]) == ground_truth:
+                    head_total += 1
+                if max(ab.keys(), key=lambda x: ab[x]) == ground_truth:
+                    arm_total += 1
+                if max(mb.keys(), key=lambda x: mb[x]) == ground_truth:
+                    multimodal_total += 1
+                if max(eb.keys(), key=lambda x: eb[x]) == ground_truth:
+                    everything_total += 1
+            x = f.readline()
+        print "Speech", speech_total*1.0 / total
+        print "Head", head_total*1.0 / total
+        print "Arms", arm_total*1.0 / total
+        print "Multimodal", multimodal_total*1.0 / total
+        print "Everything", everything_total*1.0 / total
+        """
+        prev = "silver_spoon"
+        speech_total = 0.0
+        head_total = 0.0
+        arm_total = 0.0
+        multimodal_total = 0.0
+        everything_total = 0.0
+        total = 0.0
+
+        for i in range(1,len(real_list)):
+            if not (real_list[i] == prev):
+                prev = real_list[i]
+                with open("data/speech.txt", 'a') as f:
+                    f.write(str(speech_total/total) + "\n")
+                with open("data/head.txt", 'a') as f:
+                    f.write(str(head_total/total) + "\n")
+                with open("data/arm.txt", 'a') as f:
+                    f.write(str(arm_total/total) + "\n")
+                with open("data/multi.txt", 'a') as f:
+                    f.write(str(multimodal_total/total) + "\n")
+                with open("data/every.txt", 'a') as f:
+                    f.write(str(everything_total/total) + "\n")
+                speech_total = 0.0
+                head_total = 0.0
+                arm_total = 0.0
+                multimodal_total = 0.0
+                everything_total = 0.0
+                total = 0.0
+            if speech_list[i] == real_list[i]: speech_total += 1.0
+            if head_list[i] == real_list[i]: head_total += 1.0
+            if arm_list[i] == real_list[i]: arm_total += 1.0
+            if multi_list[i] == real_list[i]: multimodal_total += 1.0
+            if every_list[i] == real_list[i]: everything_total += 1.0
+            total += 1.0
+        with open("data/speech.txt", 'a') as f:
+            f.write(str(speech_total/total) + "\n")
+        with open("data/head.txt", 'a') as f:
+            f.write(str(head_total/total) + "\n")
+        with open("data/arm.txt", 'a') as f:
+            f.write(str(arm_total/total) + "\n")
+        with open("data/multi.txt", 'a') as f:
+            f.write(str(multimodal_total/total) + "\n")
+        with open("data/every.txt", 'a') as f:
+            f.write(str(everything_total/total) + "\n")
+        """
+        """
+        speech_total = 0
+        head_total = 0
+        arm_total = 0
+        multimodal_total = 0
+        everything_total = 0
+        prev = "None"
+        f = 5
+        for i in range(1,len(real_list)):
+            if not (real_list[i] == prev):
+                prev = real_list[i]
+                if speech_list[i-f] == real_list[i-1]: speech_total += 1
+                if head_list[i-f] == real_list[i-1]: head_total += 1
+                if arm_list[i-f] == real_list[i-1]: arm_total += 1
+                if multi_list[i-f] == real_list[i-1]: multimodal_total += 1
+                if every_list[i-f] == real_list[i-1]: everything_total += 1
+        i = len(real_list)
+        if speech_list[i-f] == real_list[i-1]: speech_total += 1
+        if head_list[i-f] == real_list[i-1]: head_total += 1
+        if arm_list[i-f] == real_list[i-1]: arm_total += 1
+        if multi_list[i-f] == real_list[i-1]: multimodal_total += 1
+        if every_list[i-f] == real_list[i-1]: everything_total += 1
+        print speech_total
+        print head_total
+        print arm_total
+        print multimodal_total
+        print everything_total
+        """
+
+
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-n', '--numtests', help="The number of tests to run", type=int, default=100)
-    parser.add_argument('-s', '--timesteps', help='The number of timesteps per test', type=int, default=100)
-    parser.add_argument('-o', '--objects', help="The number of objects per test", type=int, default=5)
-    parser.add_argument('-v', '--variance', help="The variance (radians) on the guassian for each gesture", type=float, default=0.5)
-    parser.add_argument('-t', '--transition', help='The probability of transitioning to a different state', type=float, default=0.01)
-    parser.add_argument('-x', '--timeallotted', help='The time spent indicating a single object', type=int, default=10)
-    args = parser.parse_args()
-    global t
-    t = args.transition
-    global num_objects
-    num_objects = args.objects
-    global variance
-    variance = args.variance
-    global num_tests
-    num_tests = args.numtests
-    global num_steps
-    num_steps = args.timesteps
-    global time_per_object
-    time_per_object = args.timeallotted
-    run_tests()
+    if len(sys.argv) < 3:
+        print "Usage: rosrun gesture_rec gesture_relay.py <language model> <data file>"
+        sys.exit(0)
+    main()

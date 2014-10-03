@@ -108,7 +108,7 @@ def run_tests():
                 #do the transition probabilities
                 new_head_belief[o1] = 0.0
                 new_arm_belief[o1] = 0.0
-                new_multimodal_belief[o1] = 1.0
+                new_multimodal_belief[o1] = 0.0
                 new_speech_belief[o1] = 0.0
                 for o2 in range(num_objects):
                     if o1 == o2: trans_prob = 1-t
