@@ -1,3 +1,3 @@
 <launch>
-	<node pkg="tf" type="static_transform_publisher" name="openni_tf_broadcaster" args="0 0 0 1.57079632679 4.71238898038 0 camera_depth_optical_frame openni_depth_frame 100" />
+	<node pkg="tf" type="static_transform_publisher" name="openni_tf_broadcaster" args="0 0 0 1.57079632679 4.71238898038 0 tracker_camera_depth_optical_frame openni_depth_frame 100" />
 </launch>

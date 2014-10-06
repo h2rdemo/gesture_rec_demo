@@ -1,2 +1,2 @@
 #!/bin/bash
-google-chrome localhost/ros_speech
+google-chrome http://cs.brown.edu/people/meldon/ros_speech.html
