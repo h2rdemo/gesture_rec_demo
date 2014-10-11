@@ -47,6 +47,8 @@ global word_probabilities
 global vocabulary
 global eps
 eps = 0.0001
+#global user
+#user = 1
 
 global pub
 from visualization_msgs.msg import Marker
@@ -152,6 +154,21 @@ def fill_points(tfl):
 
         return True
     except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+        # global user
+        # allFramesString = tfl.getFrameStrings()
+        # onlyUsers = set([line for line in allFramesString if 'right_elbow_' in line])
+        # n = len('right_elbow_')
+        # userIDs = [el[n:] for el in onlyUsers]
+        # user = ''
+        # if len(userIDs) > 0:
+        #     mostRecentUID = userIDs[0]
+        #     mostRecentTime = tfl.getLatestCommonTime(frame, 'right_elbow_' + mostRecentUID).to_sec()
+        #     for uid in userIDs:
+        #         compTime = tfl.getLatestCommonTime(frame, 'right_elbow_' + uid).to_sec()
+        #         #rospy.loginfo("Diff time " + str(rospy.get_rostime().to_sec() - compTime))
+        #         if compTime >= mostRecentTime and rospy.get_rostime().to_sec() - compTime < 5:
+        #             user = uid
+        #             mostRecentTime = compTime
         left_arm_point = None
         right_arm_origin = None
         left_arm_origin = None
