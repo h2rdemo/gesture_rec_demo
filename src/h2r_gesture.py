@@ -164,6 +164,7 @@ def fill_points(tfl):
 
 def baxter_init_response():
     plt.ion()
+    #plt.figure(figsize=(10,10))
     plt.show()
 def baxter_respond():
     plt.clf()
