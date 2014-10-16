@@ -163,19 +163,15 @@ def fill_points(tfl):
         return False
 
 def baxter_init_response():
-    plt.ion()
-    plt.show()
+    return
+
+demo_pub = rospy.Publisher('ros_gesture_demo', String, queue_size=10)
 def baxter_respond():
-    plt.clf()
     x = []
     for word in state_dist.keys():
-        x.append(word.replace('_', ' '))
-    plt.bar(range(len(state_dist.keys())), state_dist.values(), align='center')
-    plt.xticks(range(len(state_dist.keys())), x, size='small')
-    font = {'family' : 'normal','weight' : 'bold','size'   : 25}
-    matplotlib.rc('font', **font)
-    plt.ylim([0,1.0])
-    plt.draw()
+        x.append(word.replace('_', ' ') + ":" + str(state_dist[word]))
+    demo_pub.publish(';'.join(x))
+
 
 def update_model():
     global state_dist

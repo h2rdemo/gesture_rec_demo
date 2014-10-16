@@ -1,0 +1,96 @@
+<html>
+<head>
+<style type="text/css">
+#prob_output>div {
+	display: inline-block;
+	width: 180px;
+	margin: 0 8px;
+}
+#prob_output>div>div {
+	background: #39F;
+}
+#prob_output>div>span {
+	display:block;
+	width: 100%;
+}
+</style>
+</head>
+<body>
+<div id="prob_output"></div>
+<img id="face" src="confused.jpg" style="width: 20%;" />
+</body>
+<script type="text/javascript" src="eventemitter2.min.js"></script>
+<script type="text/javascript" src="roslib.min.js"></script>
+<script type="text/javascript">
+	function $(v){return document.getElementById(v);}
+	console.log("Connecting to ROS");
+	var ros = new ROSLIB.Ros({
+		url : 'ws://localhost:9090'
+	});
+	ros.on('connection', function() {
+		console.log('Connected to websocket server.');
+	});
+
+	ros.on('error', function(error) {
+		console.log('Error connecting to websocket server: ', error);
+	});
+	ros.on('close', function() {
+		console.log('Connection to websocket server closed.');
+	});
+	
+	var gesture_topic = new ROSLIB.Topic({
+		ros : ros,
+		name : 'ros_gesture_demo',
+		messageType : 'std_msgs/String'
+	});
+
+var rec_objects = {};
+var rec_objects_count = 0;
+var rec_objects_prob = [];
+var rec_objects_node = [];
+var rec_objects_name = [];
+
+	gesture_topic.subscribe(function(message) {
+		//console.log('Received message on ' + gesture_topic.name + ': ' + message.data);
+		var tmp = message.data.split(";");
+		for (var i = 0; i < tmp.length; ++i) {
+			var entry = tmp[i].split(":");
+			//console.log(entry);
+			//$(entry[0] + "_val").innerHtml = entry[1];
+			// If the object has not already been recognized, add it to the pool:			
+			if(!(entry[0] in rec_objects)){
+				// Initialize the new object-to-index lookup:
+				rec_objects[entry[0]] = rec_objects_count;
+				// Assign it a name:
+				rec_objects_name[rec_objects_count] = entry[0];					
+				// Create a new node for it in the DOM, and then append it to div#prob_output:
+				rec_objects_node[rec_objects_count] = document.createElement("div");
+				rec_objects_node[rec_objects_count].innerHTML = "&nbsp;";				
+				rec_objects_node[rec_objects_count].className = "histbar";
+				var docFrag = document.createElement("div");
+				var textFrag = document.createElement("span");
+				textFrag.innerText = rec_objects_name[rec_objects_count];
+				docFrag.appendChild(textFrag);
+				docFrag.appendChild(rec_objects_node[rec_objects_count]);
+				$("prob_output").appendChild(docFrag);
+				// Move to the next index:
+				rec_objects_count++;
+			}
+			rec_objects_prob[rec_objects[entry[0]]] = parseFloat(entry[1]);
+		}
+
+		updateDisplay();
+	});
+	
+	// Update the display based on the contents of rec_objects:`
+	function updateDisplay(){
+		for (var i = 0; i < rec_objects_count; ++i){
+			rec_objects_node[i].style.width = Math.round(120*rec_objects_prob[i]) + "px";
+		}
+	}
+
+	setInterval(function(){
+		$("face").src = ($("face").getAttribute("src") == "confused.jpg")?"happy.jpg":"confused.jpg";
+	}, 1000);
+</script>
+</html>
