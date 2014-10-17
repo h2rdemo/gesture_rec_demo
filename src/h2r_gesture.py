@@ -38,7 +38,7 @@ global objects
 objects = []
 #TEMP HACK
 #objects = [("pink_box", (1.4,-0.2,-0.5)), ("purple_cylinder", (1.4, 0.05, -0.5))]
-objects = [("silver_spoon", (1.7, 0.1, -0.5)),("plastic_spoon", (1.7, -0.4, -0.5)), ("metal_bowl",(1.4, -0.37, -0.47)), ("color_bowl",(1.4, 0.22,-0.47))]
+objects = [("silver_spoon", (1.5, 0.07, -0.3)),("plastic_spoon", (1.5, -0.37, -0.3)), ("metal_bowl",(1.2, -0.37, -0.37)), ("color_bowl",(1.2, 0.07,-0.37))]
 global t
 t = 0.005
 global variance
@@ -109,6 +109,22 @@ def prob_of_sample(sample):
 #fills body points from openni data
 def fill_points(tfl):
     try:
+        global user
+        frame = "/openni_link" #"camera_link"
+        allFramesString = tfl.getFrameStrings()
+        onlyUsers = set([line for line in allFramesString if 'right_elbow_' in line])
+        n = len('right_elbow_')
+        userIDs = [el[n:] for el in onlyUsers]
+        user = ''
+        if len(userIDs) > 0:
+            mostRecentUID = userIDs[0]
+            mostRecentTime = tfl.getLatestCommonTime(frame, 'right_elbow_' + mostRecentUID).to_sec()
+            for uid in userIDs:
+                compTime = tfl.getLatestCommonTime(frame, 'right_elbow_' + uid).to_sec()
+                #rospy.loginfo("Diff time " + str(rospy.get_rostime().to_sec() - compTime))
+                if compTime >= mostRecentTime and rospy.get_rostime().to_sec() - compTime < 5:
+                    user = uid
+                    mostRecentTime = compTime
         global left_arm_origin
         global right_arm_origin
         global head_origin
@@ -117,14 +133,13 @@ def fill_points(tfl):
         global right_arm_point
         global left_foot
         global right_foot
-        frame = "/openni_link" #"camera_link"
-        (to_left_elbow,_) = tfl.lookupTransform(frame,"/left_elbow_1", rospy.Time(0))
-        (to_right_elbow,_) = tfl.lookupTransform(frame,"/right_elbow_1", rospy.Time(0))
-        (to_left_hand,_) = tfl.lookupTransform(frame,"/left_hand_1", rospy.Time(0))
-        (to_right_hand,_) = tfl.lookupTransform(frame,"/right_hand_1", rospy.Time(0))
-        (right_foot,_) = tfl.lookupTransform(frame, "/right_foot_1", rospy.Time(0))
-        (left_foot,_) = tfl.lookupTransform(frame, "/left_foot_1", rospy.Time(0))
-        (to_head,head_rot) = tfl.lookupTransform(frame,"/head_1", rospy.Time(0))
+        (to_left_elbow,_) = tfl.lookupTransform(frame,"/left_elbow_" + user, rospy.Time(0))
+        (to_right_elbow,_) = tfl.lookupTransform(frame,"/right_elbow_" + user, rospy.Time(0))
+        (to_left_hand,_) = tfl.lookupTransform(frame,"/left_hand_" + user, rospy.Time(0))
+        (to_right_hand,_) = tfl.lookupTransform(frame,"/right_hand_" + user, rospy.Time(0))
+        (right_foot,_) = tfl.lookupTransform(frame, "/right_foot_" + user, rospy.Time(0))
+        (left_foot,_) = tfl.lookupTransform(frame, "/left_foot_" + user, rospy.Time(0))
+        (to_head,head_rot) = tfl.lookupTransform(frame,"/head_" + user, rospy.Time(0))
         left_arm_origin = to_left_hand
         left_arm_point = add_vec(to_left_hand, sub_vec(to_left_hand, to_left_elbow))
         right_arm_origin = to_right_hand
@@ -154,21 +169,6 @@ def fill_points(tfl):
 
         return True
     except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-        # global user
-        # allFramesString = tfl.getFrameStrings()
-        # onlyUsers = set([line for line in allFramesString if 'right_elbow_' in line])
-        # n = len('right_elbow_')
-        # userIDs = [el[n:] for el in onlyUsers]
-        # user = ''
-        # if len(userIDs) > 0:
-        #     mostRecentUID = userIDs[0]
-        #     mostRecentTime = tfl.getLatestCommonTime(frame, 'right_elbow_' + mostRecentUID).to_sec()
-        #     for uid in userIDs:
-        #         compTime = tfl.getLatestCommonTime(frame, 'right_elbow_' + uid).to_sec()
-        #         #rospy.loginfo("Diff time " + str(rospy.get_rostime().to_sec() - compTime))
-        #         if compTime >= mostRecentTime and rospy.get_rostime().to_sec() - compTime < 5:
-        #             user = uid
-        #             mostRecentTime = compTime
         left_arm_point = None
         right_arm_origin = None
         left_arm_origin = None
@@ -181,7 +181,7 @@ def fill_points(tfl):
 
 def baxter_init_response():
     plt.ion()
-    #plt.figure(figsize=(10,10))
+    plt.figure(figsize=(10,10))
     plt.show()
 def baxter_respond():
     plt.clf()
@@ -296,10 +296,10 @@ def main():
     marker.scale.z = 0.2
     marker.color.a = 1.0
     # depth, right left, up down
-    p1 = Point(1.4, 0.22,-0.47) # color bowl
-    p2 = Point(1.4, -0.37, -0.47) #metal bowl
-    p3 = Point(1.7, -0.4, -0.5) #plastic spoon
-    p4 = Point(1.7, 0.1, -0.5) #silver spoon
+    p1 = Point(1.2, 0.07,-0.37) # color bowl
+    p2 = Point(1.2, -0.37, -0.37) #metal bowl
+    p3 = Point(1.5, -0.37, -0.3) #plastic spoon
+    p4 = Point(1.5, 0.07, -0.3) #silver spoon
     marker.points += [p1,p2,p3,p4]
     baxter_init_response()
     while not rospy.is_shutdown():
