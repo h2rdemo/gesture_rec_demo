@@ -3,21 +3,37 @@
 <style type="text/css">
 #prob_output>div {
 	display: inline-block;
-	width: 180px;
+	width: 240px;
 	margin: 0 8px;
+
+	font-size: 150%;
 }
 #prob_output>div>div {
 	background: #39F;
+	height: 30px;
+}
+#prob_output>div>div.conf {
+	background: #F93;
 }
 #prob_output>div>span {
 	display:block;
 	width: 100%;
 }
+#layout tr:first-child td {
+	height: 480px;
+}
 </style>
 </head>
 <body>
-<div id="prob_output"></div>
-<img id="face" src="confused.jpg" style="width: 20%;" />
+<table cellspacing="2" cellpadding="0" id="layout">
+<tr>
+	<td><video src="http://localhost:8888/streams/openni/rgb/image_color.webm?enc=webm&bitrate=100000&framerate=31" autoplay="true" preload="none" ></video></td>
+	<td><img id="face" src="confused.jpg" style="height: 480px; margin: 0 0 0 -15%" /></td>
+</tr>
+<tr>
+	<td colspan="2"><div id="prob_output"></div></td>
+</tr>
+
 </body>
 <script type="text/javascript" src="eventemitter2.min.js"></script>
 <script type="text/javascript" src="roslib.min.js"></script>
@@ -53,6 +69,7 @@ var rec_objects_name = [];
 	gesture_topic.subscribe(function(message) {
 		//console.log('Received message on ' + gesture_topic.name + ': ' + message.data);
 		var tmp = message.data.split(";");
+		var confident = 0; // Number of items at confidence level > 0.70;
 		for (var i = 0; i < tmp.length; ++i) {
 			var entry = tmp[i].split(":");
 			//console.log(entry);
@@ -76,21 +93,29 @@ var rec_objects_name = [];
 				// Move to the next index:
 				rec_objects_count++;
 			}
-			rec_objects_prob[rec_objects[entry[0]]] = parseFloat(entry[1]);
+			var c = parseFloat(entry[1]); // Parse the confidence level
+			rec_objects_prob[rec_objects[entry[0]]] = c;
+			if (c > 0.70) {
+				confident++;
+			}
 		}
 
+		$("face").src = (confident == 1)?"happy.jpg":"confused.jpg";
 		updateDisplay();
 	});
 	
 	// Update the display based on the contents of rec_objects:`
 	function updateDisplay(){
 		for (var i = 0; i < rec_objects_count; ++i){
-			rec_objects_node[i].style.width = Math.round(120*rec_objects_prob[i]) + "px";
+			rec_objects_node[i].style.width = Math.round(200*rec_objects_prob[i]) + "px";
+			rec_objects_node[i].className = (rec_objects_prob[i]>0.70)?"conf":"";
 		}
 	}
 
+	/*
 	setInterval(function(){
 		$("face").src = ($("face").getAttribute("src") == "confused.jpg")?"happy.jpg":"confused.jpg";
 	}, 1000);
+	*/
 </script>
 </html>
