@@ -184,10 +184,14 @@ def baxter_init_response():
 
 demo_pub = rospy.Publisher('ros_gesture_demo', String, queue_size=10)
 def baxter_respond():
-    x = []
-    for word in state_dist.keys():
-        x.append(word.replace('_', ' ') + ":" + str(state_dist[word]))
-    demo_pub.publish(';'.join(x))
+    global user
+    if user == '':
+        demo_pub.publish("#NOUSER")
+    else:
+        x = []
+        for word in state_dist.keys():
+            x.append(word.replace('_', ' ') + ":" + str(state_dist[word]))
+        demo_pub.publish(';'.join(x))
 
 
 def update_model():

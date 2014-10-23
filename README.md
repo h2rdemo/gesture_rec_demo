@@ -1,5 +1,6 @@
 gesture_rec_demo
 ================
+
 Dependencies
 ------------
 ```
@@ -20,5 +21,14 @@ roslaunch gesture_rec rosbridge_ws.launch
 rosrun gesture_rec h2r_gesture.py src/ros_gesture/src/object_lists/list1.txt
 ```
 
-To Do:
- - [ ] Scape `openni_launch` 
+Notes
+-----
+`psi.png` was made based on a work in the public domain.
+
+
+To Do
+-----
+ - [X] Pose for Calibration
+ - [ ] Launch script
+   - [ ] Including opening the browser
+ - [ ] Image overlay engine
