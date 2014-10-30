@@ -28,7 +28,7 @@
 <table cellspacing="2" cellpadding="0" id="layout">
 <tr>
 	<td><video src="http://localhost:8888/streams/openni/rgb/image_color.webm?enc=webm&bitrate=100000&framerate=31" autoplay="true" preload="none" ></video></td>
-	<td><img id="face" src="psi.png" style="height: 480px; margin: 0 0 0 -15%" /></td>
+	<td><img id="face" src="psi.png" style="height: 480px; margin: 0 auto" /></td>
 </tr>
 <tr>
 	<td colspan="2"><div id="prob_output"></div></td>
@@ -69,7 +69,7 @@ var rec_objects_name = [];
 	gesture_topic.subscribe(function(message) {
 		//console.log('Received message on ' + gesture_topic.name + ': ' + message.data);
 		if(message.data == "#NOUSER") {
-			$("face").src = "psi.jpg";
+			$("face").src = "psi.png";
 		} else {
 			var tmp = message.data.split(";");
 			var confident = 0; // Number of items at confidence level > 0.70;
