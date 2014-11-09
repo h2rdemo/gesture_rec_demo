@@ -5,7 +5,7 @@
 	display: inline-block;
 	width: 200px;
 	height: 240px;
-	margin: 0 8px;
+	margin: 8px 8px 0;
 
 	font-family: sans-serif;
 	font-size: 180%;
@@ -25,13 +25,21 @@
 #layout tr:first-child td {
 	height: 480px;
 }
+#image_area {
+	position: relative;
+}
+#image_area img:first-child {
+	position: absolute;
+}
+#image_area img:last-child {
+	z-index: -100;
+}
 </style>
 </head>
 <body>
 <table cellspacing="2" cellpadding="0" id="layout">
 <tr>
-	<!-- <td><video src="http://localhost:8888/streams/openni/rgb/image_color.webm?enc=webm&bitrate=100000&framerate=31" autoplay="true" preload="none" ></video></td> -->
-	<td><img src="http://127.0.0.1:8080/stream?topic=/openni/rgb/image_color"></img></td>
+	<td id="image_area"><img id="image_overlay"></img><img src="http://127.0.0.1:8080/stream?topic=/openni/rgb/image_color"></img></td>
 	<td><img id="face" src="psi.png" style="height: 480px; margin: 0 auto" /></td>
 </tr>
 <tr>
@@ -77,10 +85,9 @@ var rec_objects_name = [];
 		} else {
 			var tmp = message.data.split(";");
 			var confident = 0; // Number of items at confidence level > 0.70;
+			var confident_item = "";
 			for (var i = 0; i < tmp.length; ++i) {
 				var entry = tmp[i].split(":");
-				//console.log(entry);
-				//$(entry[0] + "_val").innerHtml = entry[1];
 				// If the object has not already been recognized, add it to the pool:			
 				if(!(entry[0] in rec_objects)){
 					// Initialize the new object-to-index lookup:
@@ -104,11 +111,18 @@ var rec_objects_name = [];
 				rec_objects_prob[rec_objects[entry[0]]] = c;
 				if (c > 0.70) {
 					confident++;
+					confident_item = rec_objects_name[rec_objects[entry[0]]];
 				}
 			}
 
 			$("face").src = (confident == 1)?"happy.jpg":"confused.jpg";
 			updateDisplay();
+			if(confident) {
+				$("image_overlay").style.display="block";
+				$("image_overlay").src="object_lists/image_" + confident_item + ".jpg";
+			} else {
+				$("image_overlay").style.display="none";
+			}
 		}
 	});
 	
@@ -120,10 +134,5 @@ var rec_objects_name = [];
 		}
 	}
 
-	/*
-	setInterval(function(){
-		$("face").src = ($("face").getAttribute("src") == "confused.jpg")?"happy.jpg":"confused.jpg";
-	}, 1000);
-	*/
 </script>
 </html>
