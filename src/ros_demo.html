@@ -3,13 +3,16 @@
 <style type="text/css">
 #prob_output>div {
 	display: inline-block;
-	width: 240px;
+	width: 200px;
+	height: 240px;
 	margin: 0 8px;
 
-	font-size: 150%;
+	font-family: sans-serif;
+	font-size: 180%;
 }
 #prob_output>div>div {
 	background: #39F;
+	width: 100%;
 	height: 30px;
 }
 #prob_output>div>div.conf {
@@ -27,7 +30,8 @@
 <body>
 <table cellspacing="2" cellpadding="0" id="layout">
 <tr>
-	<td><video src="http://localhost:8888/streams/openni/rgb/image_color.webm?enc=webm&bitrate=100000&framerate=31" autoplay="true" preload="none" ></video></td>
+	<!-- <td><video src="http://localhost:8888/streams/openni/rgb/image_color.webm?enc=webm&bitrate=100000&framerate=31" autoplay="true" preload="none" ></video></td> -->
+	<td><img src="http://127.0.0.1:8080/stream?topic=/openni/rgb/image_color"></img></td>
 	<td><img id="face" src="psi.png" style="height: 480px; margin: 0 auto" /></td>
 </tr>
 <tr>
@@ -85,7 +89,7 @@ var rec_objects_name = [];
 					rec_objects_name[rec_objects_count] = entry[0];					
 					// Create a new node for it in the DOM, and then append it to div#prob_output:
 					rec_objects_node[rec_objects_count] = document.createElement("div");
-					rec_objects_node[rec_objects_count].innerHTML = "&nbsp;";				
+					rec_objects_node[rec_objects_count].innerHTML = "&nbsp;";
 					rec_objects_node[rec_objects_count].className = "histbar";
 					var docFrag = document.createElement("div");
 					var textFrag = document.createElement("span");
@@ -111,7 +115,7 @@ var rec_objects_name = [];
 	// Update the display based on the contents of rec_objects:`
 	function updateDisplay(){
 		for (var i = 0; i < rec_objects_count; ++i){
-			rec_objects_node[i].style.width = Math.round(200*rec_objects_prob[i]) + "px";
+			rec_objects_node[i].style.height = Math.round(200*rec_objects_prob[i]) + "px";
 			rec_objects_node[i].className = (rec_objects_prob[i]>0.70)?"conf":"";
 		}
 	}
