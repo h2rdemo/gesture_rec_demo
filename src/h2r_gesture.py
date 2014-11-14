@@ -36,9 +36,17 @@ global state_dist
 state_dist = dict()
 global objects
 objects = []
-#TEMP HACK
-#objects = [("pink_box", (1.4,-0.2,-0.5)), ("purple_cylinder", (1.4, 0.05, -0.5))]
-objects = [("silver_spoon", (1.5, 0.07, -0.3)),("plastic_spoon", (1.5, -0.37, -0.3)), ("metal_bowl",(1.2, -0.37, -0.37)), ("color_bowl",(1.2, 0.07,-0.37))]
+
+# For image overlay:
+from ros_overlay.msg import Shape
+import overlay_shapes as shp
+
+object_thickness_max = 6
+object_color_normal = (255,153,51)
+object_color_conf = (51,153,255)
+object_conf_threshold = 0.70
+
+objects = [("silver_spoon", (1.5, 0.07, -0.3), ((467, 366), 40)),("plastic_spoon", (1.5, -0.37, -0.3), ((167, 334), 40)), ("metal_bowl",(1.2, -0.37, -0.37), ((160, 129), 40)), ("color_bowl",(1.2, 0.07,-0.37), ((456, 140), 40))]
 global t
 t = 0.005
 global variance
@@ -183,14 +191,22 @@ def baxter_init_response():
     return
 
 demo_pub = rospy.Publisher('ros_gesture_demo', String, queue_size=10)
+img_ann_pub = rospy.Publisher('gesture_rec_demo/object_circles', Shape, queue_size=10)
 def baxter_respond():
     global user
     if user == '':
         demo_pub.publish("#NOUSER")
     else:
         x = []
-        for word in state_dist.keys():
-            x.append(word.replace('_', ' ') + ":" + str(state_dist[word]))
+        i = 0;
+        for obj in objects:
+            x.append(obj[0].replace('_', ' ') + ":" + str(state_dist[obj[0]]))
+            img_ann_pub.publish(shp.overlay_circle(i, obj[2][0], obj[2][1],
+                object_color_normal if state_dist[obj[0]] < object_conf_threshold else object_color_conf,
+                False, object_thickness_max * state_dist[obj[0]]))
+
+            i += 1
+        
         demo_pub.publish(';'.join(x))
 
 
