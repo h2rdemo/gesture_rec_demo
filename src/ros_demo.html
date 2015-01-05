@@ -4,7 +4,7 @@
 #prob_output>div {
 	display: inline-block;
 	width: 200px;
-	height: 240px;
+	height: 180px;
 	margin: 8px 8px 0;
 
 	font-family: sans-serif;
@@ -39,7 +39,7 @@
 <body>
 <table cellspacing="2" cellpadding="0" id="layout">
 <tr>
-	<td id="image_area"><img id="image_overlay"  src="http://127.0.0.1:8080/stream?topic=/gesture_rec_demo/object_video"></img><img src="http://127.0.0.1:8080/stream?topic=/openni/rgb/image_color"></img></td>
+	<td id="image_area"><img id="image_overlay" style="display:block;" src="http://127.0.0.1:8080/stream?topic=/gesture_rec_demo/object_video"></img><img src="http://127.0.0.1:8080/stream?topic=/openni/rgb/image_color"></img></td>
 	<td><img id="face" src="psi.png" style="height: 480px; margin: 0 auto" /></td>
 </tr>
 <tr>
@@ -82,6 +82,7 @@ var rec_objects_name = [];
 		//console.log('Received message on ' + gesture_topic.name + ': ' + message.data);
 		if(message.data == "#NOUSER") {
 			$("face").src = "psi.png";
+			$("image_overlay").style.display="none";
 		} else {
 			var tmp = message.data.split(";");
 			var confident = 0; // Number of items at confidence level > 0.70;
@@ -117,19 +118,20 @@ var rec_objects_name = [];
 
 			$("face").src = (confident == 1)?"happy.jpg":"confused.jpg";
 			updateDisplay();
+			$("image_overlay").style.display="block";
+			/*
 			if(confident) {
 				$("image_overlay").style.display="block";
-				$("image_overlay").src="object_lists/image_" + confident_item + ".jpg";
 			} else {
 				$("image_overlay").style.display="none";
-			}
+			}*/
 		}
 	});
 	
 	// Update the display based on the contents of rec_objects:`
 	function updateDisplay(){
 		for (var i = 0; i < rec_objects_count; ++i){
-			rec_objects_node[i].style.height = Math.round(200*rec_objects_prob[i]) + "px";
+			rec_objects_node[i].style.height = Math.round(160*rec_objects_prob[i]) + "px";
 			rec_objects_node[i].className = (rec_objects_prob[i]>0.70)?"conf":"";
 		}
 	}
