@@ -46,7 +46,7 @@ object_color_normal = (255,153,51)
 object_color_conf = (51,153,255)
 object_conf_threshold = 0.70
 
-objects = [("silver_spoon", (1.5, 0.07, -0.3), ((467, 366), 40)),("plastic_spoon", (1.5, -0.37, -0.3), ((167, 334), 40)), ("metal_bowl",(1.2, -0.37, -0.37), ((160, 129), 40)), ("color_bowl",(1.2, 0.07,-0.37), ((456, 140), 40))]
+objects = [("lime", (1.7, -0.2,-0.32), ((136, 87), 50)),("orange", (1.37, -0.2,-0.5), ((476, 105), 45)), ("apple",(1.32, 0.3,-0.5), ((170, 395), 40)), ("lemon",(1.7, 0.3,-0.37), ((500, 378), 65))]
 global t
 t = 0.005
 global variance
@@ -311,10 +311,10 @@ def main():
     marker.scale.z = 0.2
     marker.color.a = 1.0
     # depth, right left, up down
-    p1 = Point(1.2, 0.07,-0.37) # color bowl
-    p2 = Point(1.2, -0.37, -0.37) #metal bowl
-    p3 = Point(1.5, -0.37, -0.3) #plastic spoon
-    p4 = Point(1.5, 0.07, -0.3) #silver spoon
+    p1 = Point(1.32, 0.3,-0.5) # Apple
+    p2 = Point(1.37, -0.2,-0.5) # Orange
+    p3 = Point(1.7, 0.3,-0.37) # Lime
+    p4 = Point(1.7, -0.2,-0.37) # Kiwi
     marker.points += [p1,p2,p3,p4]
     baxter_init_response()
     while not rospy.is_shutdown():

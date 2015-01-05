@@ -13,6 +13,7 @@ ros_web_video (built with --enable-vpx)
 To Run
 ------
 ```
+lighttpd -f lighttpd.conf
 roscore
 roslaunch openni_launch openni.launch depth_registration:=True camera:="openni"
 rosrun openni_tracker openni_tracker 
