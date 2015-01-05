@@ -126,7 +126,11 @@ var curr_disp_conf = 0;
 			}
 
 			var smoothing = 0.9;
-			curr_disp_conf = curr_disp_conf * smoothing + confidence_max * (1-smoothing);
+			if(Math.abs(curr_disp_conf - confidence_max) < 0.06) {
+				curr_disp_conf = confidence_max;
+			} else {
+				curr_disp_conf = curr_disp_conf * smoothing + confidence_max * (1-smoothing);
+			}
 			$("face").src = "./face/baxter" + strPad(Math.round((1-curr_disp_conf) * 24), 4, "0") + ".png";
 			updateDisplay();
 			$("image_overlay").style.display="block";
