@@ -50,6 +50,12 @@
 <script type="text/javascript" src="eventemitter2.min.js"></script>
 <script type="text/javascript" src="roslib.min.js"></script>
 <script type="text/javascript">
+// From http://www.codelibrary.me/javascript/javascript-strpad-function/
+function strPad(input, length, string) {
+    string = string || '0'; input = input + '';
+    return input.length >= length ? input : new Array(length - input.length + 1).join(string) + input;
+}
+
 	function $(v){return document.getElementById(v);}
 	console.log("Connecting to ROS");
 	var ros = new ROSLIB.Ros({
@@ -77,6 +83,7 @@ var rec_objects_count = 0;
 var rec_objects_prob = [];
 var rec_objects_node = [];
 var rec_objects_name = [];
+var curr_disp_conf = 0;
 
 	gesture_topic.subscribe(function(message) {
 		//console.log('Received message on ' + gesture_topic.name + ': ' + message.data);
@@ -86,6 +93,7 @@ var rec_objects_name = [];
 		} else {
 			var tmp = message.data.split(";");
 			var confident = 0; // Number of items at confidence level > 0.70;
+			var confidence_max = 0; // Maximum confidence level
 			var confident_item = "";
 			for (var i = 0; i < tmp.length; ++i) {
 				var entry = tmp[i].split(":");
@@ -114,9 +122,12 @@ var rec_objects_name = [];
 					confident++;
 					confident_item = rec_objects_name[rec_objects[entry[0]]];
 				}
+				confidence_max = (c > confidence_max)?c:confidence_max;
 			}
 
-			$("face").src = (confident == 1)?"happy.jpg":"confused.jpg";
+			var smoothing = 0.9;
+			curr_disp_conf = curr_disp_conf * smoothing + confidence_max * (1-smoothing);
+			$("face").src = "./face/baxter" + strPad(Math.round((1-curr_disp_conf) * 24), 4, "0") + ".png";
 			updateDisplay();
 			$("image_overlay").style.display="block";
 			/*
