@@ -34,6 +34,12 @@
 #image_area img:last-child {
 	z-index: -100;
 }
+#game_text {
+	font-size: 36px;
+	font-weight: bold;
+	font-family: sans-serif;
+	text-align: center;
+}
 </style>
 </head>
 <body>
@@ -41,6 +47,9 @@
 <tr>
 	<td id="image_area"><img id="image_overlay" style="display:block;" src="http://127.0.0.1:8080/stream?topic=/gesture_rec_demo/object_video"></img><img src="http://127.0.0.1:8080/stream?topic=/openni/rgb/image_color"></img></td>
 	<td><img id="face" src="psi.png" style="height: 480px; margin: 0 auto" /></td>
+</tr>
+<tr>
+	<td colspan="2"><div id="game_text"></div></td>
 </tr>
 <tr>
 	<td colspan="2"><div id="prob_output"></div></td>
@@ -84,6 +93,83 @@ var rec_objects_prob = [];
 var rec_objects_node = [];
 var rec_objects_name = [];
 var curr_disp_conf = 0;
+
+// Game parameters
+var gm_question_timeout = 20000; // Change the object (if not found) every these many seconds.
+var gm_text_timeout = 2000; // Display text for these many seconds.
+var gm_current_target = "";
+var gm_current_user = "";
+var gm_question_entered = 0; //(new Date()).getTime();
+var gm_question_text = "";
+var gm_text_entered = 0; //(new Date()).getTime();
+var gm_text_type = "";
+
+var gm_text = {
+	"question":["Can you point at the #TARGET#?", "Which one is the #TARGET#?", "Please help me find the #TARGET#."],
+	"success":["You found the #TARGET#!", "You correctly located #TARGET#!", "That is correct!"],
+	"failure":["That's not the #TARGET#!", "The #TARGET# is somewhere else!"]
+};
+
+	function game_write(type, target){
+		var txt = gm_text[type][Math.floor(Math.random()*gm_text[type].length)].replace("#TARGET#", target);
+		$('game_text').innerHTML = txt;
+		gm_text_entered = (new Date()).getTime();
+		gm_text_type = type;
+		if(type == "question") {
+			gm_question_text = txt; // Cache the question text.
+		}
+	}
+
+	function game_gen_qn() {
+		gm_current_target = rec_objects_name[Math.floor(Math.random()*rec_objects_name.length)];
+		gm_question_entered = (new Date()).getTime();
+		game_write("question", gm_current_target);
+	}
+
+	function game_loop() {
+		if(rec_objects_name.length == 0)
+			return;
+
+		if(gm_question_entered == 0) {
+			// Generate a question immediately.
+			return game_gen_qn();
+		}
+
+		var now = (new Date()).getTime();
+
+		// Has the question expired?
+		if(gm_question_entered + gm_question_timeout < now) {
+			return game_gen_qn();
+		}
+
+		// Check to see if the previous text has expired:
+		if(gm_text_entered + gm_text_timeout < now) {
+			// Is this text the result of success?
+			if(gm_text_type == "success") {
+				return game_gen_qn(); // Advance to the next question.
+			}
+			// Replace it with the original question:
+			$('game_text').innerHTML = gm_question_text;
+			gm_text_type = "question";
+		}
+
+		// Check to see if the user has already succeeded
+		if(gm_text_type == "success") {
+			return; // Wait for the timeout.
+		}
+
+		// Check to see if the user is pointing at something:
+		if(gm_current_user != "") {
+			// Check to see if the user is correct:
+			if(gm_current_user == gm_current_target) {
+				game_write("success", gm_current_target);
+			} else {
+				game_write("failure", gm_current_target);
+			}
+		}
+	}
+
+	setInterval(game_loop, 1000); // Run the function every second at minimum.
 
 	gesture_topic.subscribe(function(message) {
 		//console.log('Received message on ' + gesture_topic.name + ': ' + message.data);
@@ -134,12 +220,12 @@ var curr_disp_conf = 0;
 			$("face").src = "./face/baxter" + strPad(Math.round((1-curr_disp_conf) * 24), 4, "0") + ".png";
 			updateDisplay();
 			$("image_overlay").style.display="block";
-			/*
+			
 			if(confident) {
-				$("image_overlay").style.display="block";
+				gm_current_user = confident_item;
 			} else {
-				$("image_overlay").style.display="none";
-			}*/
+				gm_current_user = "";
+			}
 		}
 	});
 	
